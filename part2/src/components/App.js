@@ -1,99 +1,81 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
-
+import Note from './Note'
+import noteService from '../services/notes'
 
 const App = () => {
-    const [ countries, setCountries] = useState([]);
-
-    const [showCountries, setShowCountries] = useState(true);
-    const [search, setSearch] = useState('');
-    const [searchedCountries, setSearchedCountries] = useState([{name: "search for countries"}])
+    const [notes, setNotes] = useState([]);
+    const [newNote, setNewNote] = useState('');
+    const [showAll, setShowAll] = useState(true);
 
     useEffect(() => {
-        axios.get('https://restcountries.eu/rest/v2/all')
-            .then(response => {
-                setCountries(response.data)
-                console.log(response.data)
+        noteService
+            .getAll()
+            .then(initialNotes => {
+                setNotes(initialNotes)
             })
-    }, [])
+    }, []);
 
+    const addNote = (event) => {
+        event.preventDefault();
+        const noteObject = {
+            content: newNote,
+            date: new Date().toISOString(),
+            important: Math.random() > 0.5,
+            id: notes.length + 1,
+        };
 
-    const changeHandler = (event) => {
-        setSearch(event.target.value)
-
-        if(event.target.value !== ""){
-            setShowCountries(false);
-            if(countries.filter(countrie => countrie.name.toLowerCase().indexOf(event.target.value.toLowerCase()) > -1).length > 10){
-                setSearchedCountries([{name: "more then 10 countries"}])
-                console.log('to many')
-            } else {
-                setSearchedCountries(countries.filter(countrie => countrie.name.toLowerCase().indexOf(event.target.value.toLowerCase())> -1))
-                console.log('under 10')
-            }
-        } else {
-            setShowCountries(true)
-            setSearchedCountries([{name: "search for countries"}])
-            console.log(true)
-        }
+        noteService
+            .create(noteObject)
+            .then(returnedNote => {
+                setNotes(notes.concat(returnedNote))
+                setNewNote('')
+            })
     };
 
-    const Countries = () => {
-        if(searchedCountries.length === 1){
+    const handleNoteChange = (event) => {
+        setNewNote(event.target.value)
+    };
 
-            if(searchedCountries[0].name === "search for countries" || searchedCountries[0].name === "more then 10 countries"){
-                return (
-                    <div>
-                        <p>{searchedCountries[0].name}</p>
-                    </div>
+    const toggleImportanceOf = (id) => {
+        const note = notes.find(n => n.id === id)
+        const changedNote = { ...note, important: !note.important }
 
-                )
-            }else {
-                console.log(searchedCountries[0])
-                return (
-                    <div>
-                        <CountrieView/>
-                    </div>
-                )
-            }
-        } else {
-            return (
-                <div>
-                    <ul>
-                        {searchedCountries.map( countrie => [
-                            <p key={countrie.id}> {countrie.name}</p>,
-                            <button key={countrie.name} type={"submit"} onClick={() => {setSearch(countrie.name); setSearchedCountries([countrie])}}>{countrie.name} show</button> ]
-                        )
-                        }
-
-                    </ul>
-                </div>
+        noteService
+            .update(id, changedNote)
+            .then(returnedNote => {
+                setNotes(notes.map(note => note.id !== id ? note : returnedNote))
+            }).catch(error => {
+            alert(
+                `the note '${note.content}' was already deleted from server`
             )
-        }
+            setNotes(notes.filter(n => n.id !== id))
+        })
     }
 
-    const CountrieView = () => {
-        return(
-            <div>
-                <h1>{searchedCountries[0].name}</h1>
-                <p>Capital: {searchedCountries[0].capital}</p>
-                <p>Population: {searchedCountries[0].population}</p>
-                <h3>Languages</h3>
-                <ul>
-                    {searchedCountries[0].languages.map(language => <p key={language.name}>{language.name}</p>)}
-                </ul>
-                <img src={searchedCountries[0].flag}  alt={"empty"} width={150} height={150}/>
-            </div>
-        )
-    }
+    const notesToShow = showAll
+        ? notes
+        : notes.filter(note => note.important);
 
     return (
         <div>
-            <p>filter shown with </p>
-            <input value={search} onChange={changeHandler}/>
-
-            <h2>Countries</h2>
-            <Countries />
-
+            <h1>Notes</h1>
+            <div>
+                <button onClick={() => setShowAll(!showAll)}>
+                    show {showAll ? 'important' : 'all' }
+                </button>
+            </div>
+            <ul>
+                {notesToShow.map((note, i) =>
+                    <Note key={i} note={note} toggleImportance={() => toggleImportanceOf(note.id)} />
+                )}
+            </ul>
+            <form onSubmit={addNote}>
+                <input
+                    value={newNote}
+                    onChange={handleNoteChange}
+                />
+                <button type="submit">save</button>
+            </form>
         </div>
     )
 };
