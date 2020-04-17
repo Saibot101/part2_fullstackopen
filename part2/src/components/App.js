@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import personService from '../services/notes'
+import '../index.css'
 
 const App = () => {
     const [ persons, setPersons] = useState([
@@ -9,13 +10,14 @@ const App = () => {
     const [newNumber, setNewNumber] = useState('');
     const [showPersons, setPersonsShow] = useState(true);
     const [search, setSearch] = useState('');
+    const [message, setMessage] = useState(null);
 
     useEffect(() => {
         personService.getAll()
             .then(initinalPersons => {
                 setPersons(initinalPersons)
             })
-    }, [])
+    }, []);
 
     const addName = (event) => {
         event.preventDefault();
@@ -23,7 +25,7 @@ const App = () => {
         const nameObject = {
             name: newName,
             number: newNumber
-        }
+        };
         if(persons.find(person => person.name === newName)){
             const replacePerson = persons.find(person => person.name === newName);
             const result = window.confirm(`${newName} is already in the phonebook, replace the old number with a new one ?`);
@@ -31,20 +33,42 @@ const App = () => {
                 const newObject = {
                     ...replacePerson,
                     number: newNumber
-                }
+                };
                 personService.update(replacePerson.id, newObject)
                     .then(returnedPerson => {
                         setPersons(persons.map(person => person.name !== newName ? person : returnedPerson))
+                        setMessage(`${returnedPerson.name} number was changed successful`)
+                        setTimeout(() => {
+                            setMessage(null)
+                        }, 5000)
                     })
+                .catch(
+                    error => {
+                        setMessage('error with replacing phone number')
+                        setTimeout(() => {
+                            setMessage(null)
+                        },5000)
+                    }
+                )
+
+
             }
 
         } else {
             personService.create(nameObject)
                 .then(returnedPerson => {
-                    setPersons(persons.concat(returnedPerson))
-                    setNewName('')
+                    setPersons(persons.concat(returnedPerson));
+                    setNewName('');
                     setNewNumber('')
                 })
+                .then(
+                    setMessage(
+                        `${nameObject.name} was deleted successful`
+                    ),
+                setTimeout(() => {
+                    setMessage(null)
+                },5000)
+            )
         }
 
 
@@ -59,34 +83,61 @@ const App = () => {
     };
 
     const changeHandler = (event) => {
-        setSearch(event.target.value)
+        setSearch(event.target.value);
 
         if(event.target.value !== ""){
             setPersonsShow(false);
             console.log(false)
         } else {
-            setPersonsShow(true)
+            setPersonsShow(true);
             console.log(true)
         }
-    }
+    };
 
     const deletePerson = (id) => {
 
-        const person = persons.find(person => person.id === id)
+        const person = persons.find(person => person.id === id);
 
-        const result = window.confirm(`Delete ${person.name}`)
+        const result = window.confirm(`Delete ${person.name}`);
         if(result){
             personService.setDelete(id)
+            setPersons(persons.filter(person => person.id !== id));
 
-            setPersons(persons.filter(person => person.id !== id))
+            setMessage(
+                `${person.name} was added with ${person.number} successful`
+            );
+                setTimeout(() => {
+                    setMessage(null)
+                },5000)
         }
-    }
+    };
 
     const personsToShow = showPersons ? persons : persons.filter( person => person.name.toLowerCase().indexOf(search.toLowerCase()) > -1 );
 
+    const Notification = ()=>{
+        if(message === null){
+            return null;
+        }
+
+        if(message.includes('error')) {
+            return (
+                <div className={"error"}>
+                    {message}
+                </div>
+            )
+        } else {
+            return (
+                <div className={"notification"}>
+                    {message}
+                </div>
+            )
+        }
+    }
+
     return (
         <div>
-            <h2>Phonebook</h2>
+            <h1>Phonebook</h1>
+            <Notification />
             <p>filter shown with </p>
             <input value={search} onChange={changeHandler}/>
             <form onSubmit={addName}>
