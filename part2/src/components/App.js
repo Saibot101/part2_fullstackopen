@@ -1,81 +1,116 @@
 import React, { useState, useEffect } from 'react'
-import Note from './Note'
-import noteService from '../services/notes'
+import axios from 'axios'
+import personService from '../services/notes'
 
 const App = () => {
-    const [notes, setNotes] = useState([]);
-    const [newNote, setNewNote] = useState('');
-    const [showAll, setShowAll] = useState(true);
+    const [ persons, setPersons] = useState([
+    ]);
+    const [ newName, setNewName ] = useState('');
+    const [newNumber, setNewNumber] = useState('');
+    const [showPersons, setPersonsShow] = useState(true);
+    const [search, setSearch] = useState('');
 
     useEffect(() => {
-        noteService
-            .getAll()
-            .then(initialNotes => {
-                setNotes(initialNotes)
+        personService.getAll()
+            .then(initinalPersons => {
+                setPersons(initinalPersons)
             })
-    }, []);
+    }, [])
 
-    const addNote = (event) => {
+    const addName = (event) => {
         event.preventDefault();
-        const noteObject = {
-            content: newNote,
-            date: new Date().toISOString(),
-            important: Math.random() > 0.5,
-            id: notes.length + 1,
-        };
 
-        noteService
-            .create(noteObject)
-            .then(returnedNote => {
-                setNotes(notes.concat(returnedNote))
-                setNewNote('')
-            })
+        const nameObject = {
+            name: newName,
+            number: newNumber
+        }
+        if(persons.find(person => person.name === newName)){
+            const replacePerson = persons.find(person => person.name === newName);
+            const result = window.confirm(`${newName} is already in the phonebook, replace the old number with a new one ?`);
+            if(result){
+                const newObject = {
+                    ...replacePerson,
+                    number: newNumber
+                }
+                personService.update(replacePerson.id, newObject)
+                    .then(returnedPerson => {
+                        setPersons(persons.map(person => person.name !== newName ? person : returnedPerson))
+                    })
+            }
+
+        } else {
+            personService.create(nameObject)
+                .then(returnedPerson => {
+                    setPersons(persons.concat(returnedPerson))
+                    setNewName('')
+                    setNewNumber('')
+                })
+        }
+
+
     };
 
-    const handleNoteChange = (event) => {
-        setNewNote(event.target.value)
+    const handleNameChange = (event) => {
+        setNewName(event.target.value)
     };
 
-    const toggleImportanceOf = (id) => {
-        const note = notes.find(n => n.id === id)
-        const changedNote = { ...note, important: !note.important }
+    const handleNumberChange = (event) => {
+        setNewNumber(event.target.value)
+    };
 
-        noteService
-            .update(id, changedNote)
-            .then(returnedNote => {
-                setNotes(notes.map(note => note.id !== id ? note : returnedNote))
-            }).catch(error => {
-            alert(
-                `the note '${note.content}' was already deleted from server`
-            )
-            setNotes(notes.filter(n => n.id !== id))
-        })
+    const changeHandler = (event) => {
+        setSearch(event.target.value)
+
+        if(event.target.value !== ""){
+            setPersonsShow(false);
+            console.log(false)
+        } else {
+            setPersonsShow(true)
+            console.log(true)
+        }
     }
 
-    const notesToShow = showAll
-        ? notes
-        : notes.filter(note => note.important);
+    const deletePerson = (id) => {
+
+        const person = persons.find(person => person.id === id)
+
+        const result = window.confirm(`Delete ${person.name}`)
+        if(result){
+            personService.setDelete(id)
+
+            setPersons(persons.filter(person => person.id !== id))
+        }
+    }
+
+    const personsToShow = showPersons ? persons : persons.filter( person => person.name.toLowerCase().indexOf(search.toLowerCase()) > -1 );
 
     return (
         <div>
-            <h1>Notes</h1>
-            <div>
-                <button onClick={() => setShowAll(!showAll)}>
-                    show {showAll ? 'important' : 'all' }
-                </button>
-            </div>
-            <ul>
-                {notesToShow.map((note, i) =>
-                    <Note key={i} note={note} toggleImportance={() => toggleImportanceOf(note.id)} />
-                )}
-            </ul>
-            <form onSubmit={addNote}>
-                <input
-                    value={newNote}
-                    onChange={handleNoteChange}
-                />
-                <button type="submit">save</button>
+            <h2>Phonebook</h2>
+            <p>filter shown with </p>
+            <input value={search} onChange={changeHandler}/>
+            <form onSubmit={addName}>
+                <div>
+                    name: <input value={newName} onChange={handleNameChange} />
+                    number: <input value={newNumber} onChange={handleNumberChange}/>
+                </div>
+                <div>
+                    <button type="submit">add</button>
+                </div>
             </form>
+            <h2>Numbers</h2>
+            <div>
+                <ul>
+                    {personsToShow.map( person =>
+                        [<p key={person.key}>{person.name}  {person.number}</p>,
+                            <button onClick={() => deletePerson(person.id)}>delete {person.name}</button> ]
+
+                    )
+                    }
+
+                </ul>
+            </div>
+
         </div>
     )
 };
